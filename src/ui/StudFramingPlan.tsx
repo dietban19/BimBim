@@ -1,8 +1,10 @@
 import type { ReactElement } from 'react';
+import { PLATE_THICKNESS, STUD_WIDTH } from '../model/wallFraming';
 
 export interface StudMeasurement {
   readonly name: string;
   readonly ocIn: number;
+  readonly widthIn: number;
 }
 
 interface Props {
@@ -80,7 +82,9 @@ function DimLabel({ x, lineY, gapPx, label }: {
 }
 
 export function StudFramingPlan({ wallLength, measurements }: Props): ReactElement {
-  if (measurements.length === 0) {
+  const first = measurements[0];
+  const last = measurements[measurements.length - 1];
+  if (!first || !last || wallLength <= 0) {
     return <p className="panel__empty">Wall too short for framing.</p>;
   }
 
@@ -97,11 +101,9 @@ export function StudFramingPlan({ wallLength, measurements }: Props): ReactEleme
   const drawW = SVG_W - PAD_L - PAD_R;
   const scale = drawW / wallLength;
 
-  const STUD_W = Math.max(5, 0.038 * scale);
-  const PLATE_H = Math.max(6, 0.038 * scale);
-  const STUD_W_IN = 0.038 / 0.0254; // ≈ 1.496" nominal
+  const PLATE_H = Math.max(6, PLATE_THICKNESS * scale);
 
-  const halfStud = 0.019 * scale;
+  const halfStud = STUD_WIDTH / 2 * scale;
   const cx = (ocIn: number): number => PAD_L + halfStud + ocIn * 0.0254 * scale;
 
   const wallTop = PAD_T;
@@ -114,8 +116,6 @@ export function StudFramingPlan({ wallLength, measurements }: Props): ReactEleme
   const overallY = clrY + DIM_ROW;            // row 3: total O.C.
   const SVG_H    = overallY + 22 + PAD_B;
 
-  const first  = measurements[0]!;
-  const last   = measurements[measurements.length - 1]!;
   const firstX = cx(first.ocIn);
   const lastX  = cx(last.ocIn);
 
@@ -180,8 +180,8 @@ export function StudFramingPlan({ wallLength, measurements }: Props): ReactEleme
       {measurements.map((s) => (
         <rect
           key={s.name}
-          x={cx(s.ocIn) - STUD_W / 2} y={studTop}
-          width={STUD_W} height={studBot - studTop}
+          x={cx(s.ocIn) - s.widthIn * 0.0254 * scale / 2} y={studTop}
+          width={s.widthIn * 0.0254 * scale} height={studBot - studTop}
           fill="#c8c0b2" stroke="#1a1a1a" strokeWidth={0.5}
         />
       ))}
@@ -223,7 +223,8 @@ export function StudFramingPlan({ wallLength, measurements }: Props): ReactEleme
       ))}
 
       {measurements.slice(1).map((s, i) => {
-        const prev = measurements[i]!;
+        const prev = measurements[i];
+        if (!prev) return null;
         const ax = cx(prev.ocIn);
         const bx = cx(s.ocIn);
         return (
@@ -246,13 +247,14 @@ export function StudFramingPlan({ wallLength, measurements }: Props): ReactEleme
         fontFamily="'Courier New', monospace">CLR</text>
 
       {measurements.slice(1).map((s, i) => {
-        const prev = measurements[i]!;
-        const leftFaceX  = cx(prev.ocIn) + STUD_W / 2;
-        const rightFaceX = cx(s.ocIn)   - STUD_W / 2;
+        const prev = measurements[i];
+        if (!prev) return null;
+        const leftFaceX  = cx(prev.ocIn) + prev.widthIn * 0.0254 * scale / 2;
+        const rightFaceX = cx(s.ocIn) - s.widthIn * 0.0254 * scale / 2;
         const segPx = rightFaceX - leftFaceX;
         if (segPx < 2) return null;
 
-        const clearIn = (s.ocIn - prev.ocIn) - STUD_W_IN;
+        const clearIn = (s.ocIn - prev.ocIn) - (prev.widthIn + s.widthIn) / 2;
         const midX = (leftFaceX + rightFaceX) / 2;
 
         return (
@@ -281,8 +283,9 @@ export function StudFramingPlan({ wallLength, measurements }: Props): ReactEleme
         textAnchor="middle" dominantBaseline="auto"
         fontSize={8} fill="#2a2a2a" fontFamily="'Courier New', monospace"
       >
-        {fmtFtIn(last.ocIn)} TOTAL O.C.
+        {fmtFtIn(last.ocIn - first.ocIn)} TOTAL O.C.
       </text>
     </svg>
   );
 }
+

@@ -216,7 +216,7 @@ function WallProperties({
               </button>
             </div>
             <div className="framing-modal__body">
-              <StudFramingPlan wallLength={wall.length} measurements={studMeasurements} />
+              <StudFramingPlan wallLength={walls.getBuiltWallLength(wall.id)} measurements={studMeasurements} />
             </div>
           </div>
         </div>,
@@ -287,3 +287,4 @@ export function WallInspector(): ReactElement {
     </section>
   );
 }
+

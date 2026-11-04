@@ -197,42 +197,17 @@ export class WallToolComponent extends Component {
     });
   }
 
-  getStudMeasurements(id: string): Array<{ name: string; ocIn: number }> {
+  getBuiltWallLength(id: string): number {
+    return this.walls.get(id)?.getBuiltLength() ?? 0;
+  }
+
+  getStudMeasurements(id: string): Array<{ name: string; ocIn: number; widthIn: number }> {
     const wall = this.walls.get(id);
     if (!wall) return [];
-    const length = wall.getBuiltLength();
-    const studWidth = 0.038;
-    const studSpacing = 16 * 0.0254;
-    const leftCenter  = -length / 2 + studWidth / 2;
-    const rightCenter =  length / 2 - studWidth / 2;
-    if (length < 2 * studWidth) return [];
-    const toIn = (m: number) => m / 0.0254;
-    const { left: leftCorner, right: rightCorner } = wall.getCornerRoles();
-
-    const result: Array<{ name: string; ocIn: number }> = [
-      { name: 'Left end stud', ocIn: 0 },
-    ];
-
-    if (leftCorner === 'through') {
-      result.push({ name: 'Left corner nailer', ocIn: toIn(studWidth) });
-    }
-
-    const rightStopBefore = rightCorner === 'through'
-      ? rightCenter - 2 * studWidth
-      : rightCenter - studWidth;
-
-    for (let i = 1; ; i++) {
-      const x = leftCenter + i * studSpacing;
-      if (x > rightStopBefore) break;
-      result.push({ name: `Layout stud ${i}`, ocIn: toIn(x - leftCenter) });
-    }
-
-    if (rightCorner === 'through') {
-      result.push({ name: 'Right corner nailer', ocIn: toIn((rightCenter - studWidth) - leftCenter) });
-    }
-
-    result.push({ name: 'Right end stud', ocIn: toIn(rightCenter - leftCenter) });
-    return result;
+    const studs = wall.getFramingMembers().filter((m) => m.kind !== 'plate').sort((a, b) => a.x - b.x);
+    const first = studs[0];
+    if (!first) return [];
+    return studs.map((m) => ({ name: m.name, ocIn: (m.x - first.x) / 0.0254, widthIn: m.width / 0.0254 }));
   }
 
   showWallFraming(id: string): void {
@@ -843,3 +818,4 @@ function isEditableTarget(target: EventTarget | null): boolean {
     ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
   );
 }
+

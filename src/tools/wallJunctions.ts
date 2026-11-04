@@ -1,3 +1,4 @@
+import { resolveFramingCorners } from '../model/wallFraming';
 import { resolveJunctions } from '../model/wallJunctions';
 import type { WallMesh } from '../objects/WallMesh';
 
@@ -14,10 +15,13 @@ import type { WallMesh } from '../objects/WallMesh';
  */
 export function applyWallJunctions(walls: Iterable<WallMesh>): void {
   const meshes = [...walls];
-  const offsets = resolveJunctions(meshes.map((wall) => wall.toJunctionWall()));
+  const inputs = meshes.map((wall) => wall.toJunctionWall());
+  const offsets = resolveJunctions(inputs);
+  const corners = resolveFramingCorners(inputs);
 
   meshes.forEach((wall, index) => {
     const resolved = offsets[index];
-    if (resolved) wall.setJunctionOffsets(resolved);
+    if (resolved) wall.setJunctionOffsets(resolved, corners[index]);
   });
 }
+
