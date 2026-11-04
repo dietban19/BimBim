@@ -23,7 +23,8 @@ export function createEditor(container: HTMLElement): EditorSession {
   const world = engine.worlds.create(MAIN_WORLD_ID, { container });
 
   world.add(RaycastComponent);
-  const grid = world.add(GridComponent, { size: 40, spacing: 0.5, majorEvery: 2 });
+  // size: 200 ft (60.96 m), spacing: 1 ft (0.3048 m), major line every 10 ft
+  const grid = world.add(GridComponent, { size: 60.96, spacing: 0.3048, majorEvery: 10 });
   const camera = world.add(OrbitControlsComponent);
   const walls = world.add(WallToolComponent);
 

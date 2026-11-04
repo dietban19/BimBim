@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { useEditor, useEditorState } from '../editor/EditorContext';
+import { mToFt } from '../utils/units';
 import { describeTool } from './instructions';
 
 export function StatusBar(): ReactElement {
@@ -8,10 +9,11 @@ export function StatusBar(): ReactElement {
   const placement = useEditorState((s) => s.placement);
   const selectedId = useEditorState((s) => s.selectedId);
   const walls = useEditorState((s) => s.walls);
+  const pendingOpeningType = useEditorState((s) => s.pendingOpeningType);
   const cursor = useEditorState((s) => s.cursor);
   const message = useEditorState((s) => s.message);
 
-  const hint = describeTool({ mode, placement, selectedId, walls });
+  const hint = describeTool({ mode, placement, selectedId, walls, pendingOpeningType });
 
   return (
     <footer className="statusbar">
@@ -26,7 +28,7 @@ export function StatusBar(): ReactElement {
       <dl className="statusbar__readouts">
         <div>
           <dt>Cursor</dt>
-          <dd>{cursor ? `X ${cursor.x.toFixed(2)}  Z ${cursor.z.toFixed(2)}` : '—'}</dd>
+          <dd>{cursor ? `X ${mToFt(cursor.x).toFixed(2)}  Z ${mToFt(cursor.z).toFixed(2)}` : '—'}</dd>
         </div>
         <div>
           <dt>Walls</dt>
@@ -34,7 +36,7 @@ export function StatusBar(): ReactElement {
         </div>
         <div>
           <dt>Snap</dt>
-          <dd>{grid.spacing} m</dd>
+          <dd>{mToFt(grid.spacing).toFixed(0)} ft</dd>
         </div>
       </dl>
     </footer>

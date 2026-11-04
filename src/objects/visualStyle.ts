@@ -19,6 +19,22 @@ export const OBJECT_STYLES: Readonly<Record<VisualState, SurfaceStyle>> = {
   preview: { surface: ACCENT, edge: ACCENT, opacity: 0.35 },
 };
 
+// Background box behind the door detail meshes (mostly hidden by the detail layer)
+export const DOOR_STYLES: Readonly<Record<VisualState, SurfaceStyle>> = {
+  default:  { surface: 0x1a1816, edge: 0x706a60, opacity: 1    },
+  hovered:  { surface: 0x242020, edge: 0x7fa3cc, opacity: 1    },
+  selected: { surface: 0x1e2d3f, edge: ACCENT,   opacity: 1    },
+  preview:  { surface: ACCENT,   edge: ACCENT,   opacity: 0.45 },
+};
+
+// Background box behind the window glass (mostly hidden by the frame + glass layer)
+export const WINDOW_STYLES: Readonly<Record<VisualState, SurfaceStyle>> = {
+  default:  { surface: 0x101416, edge: 0x5a9abb, opacity: 1    },
+  hovered:  { surface: 0x1a2028, edge: 0x7ab0d0, opacity: 1    },
+  selected: { surface: 0x1e2d3f, edge: ACCENT,   opacity: 1    },
+  preview:  { surface: ACCENT,   edge: ACCENT,   opacity: 0.40 },
+};
+
 export const HANDLE_COLOR = 0xe8eef5;
 export const HANDLE_HOVER_COLOR = ACCENT;
 export const GRID_MINOR_COLOR = 0x353535;

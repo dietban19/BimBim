@@ -39,6 +39,23 @@ export class RaycastComponent extends Component {
     return hit ? { x: hit.x, z: hit.z } : null;
   }
 
+  /**
+   * Intersects the pointer ray with the vertical plane perpendicular to `axis`
+   * at `offset` (e.g. axis='z', offset=2 → the plane z=2). Returns the XZ hit
+   * point, or null if the ray is parallel to the plane.
+   *
+   * Use this when placing elements on a wall: the wall's own centreline plane
+   * gives an accurate XZ position regardless of camera angle, whereas the
+   * ground plane (y=0) introduces a parallax offset for walls away from origin.
+   */
+  intersectVerticalPlane(pointer: PointerPosition, axis: 'x' | 'z', offset: number): PlanPoint | null {
+    this.aim(pointer);
+    const normal = axis === 'x' ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1);
+    const plane = new THREE.Plane(normal, -offset);
+    const hit = this.raycaster.ray.intersectPlane(plane, this.hitPoint);
+    return hit ? { x: hit.x, z: hit.z } : null;
+  }
+
   intersectObjects(pointer: PointerPosition, objects: readonly THREE.Object3D[], recursive = false): THREE.Intersection[] {
     if (objects.length === 0) return [];
     this.aim(pointer);

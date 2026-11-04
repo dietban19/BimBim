@@ -21,10 +21,10 @@ export function validateDimension(input: number | string, limits: DimensionLimit
     return { ok: false, error: `${limits.label} must be a finite number.` };
   }
   if (value <= 0) {
-    return { ok: false, error: `${limits.label} must be greater than 0 m.` };
+    return { ok: false, error: `${limits.label} must be greater than 0.` };
   }
   if (value < limits.min || value > limits.max) {
-    return { ok: false, error: `${limits.label} must be between ${limits.min} m and ${limits.max} m.` };
+    return { ok: false, error: `${limits.label} must be between ${limits.min} and ${limits.max}.` };
   }
   return { ok: true, value };
 }

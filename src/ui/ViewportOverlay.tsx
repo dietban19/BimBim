@@ -7,6 +7,7 @@ const MODE_LABELS: Record<ToolMode, string> = {
   select: 'Select',
   'draw-wall': 'Draw Wall',
   resize: 'Resize',
+  'place-opening': 'Place Opening',
 };
 
 /** Compact readouts drawn over the viewport corners. Never intercepts pointer input. */

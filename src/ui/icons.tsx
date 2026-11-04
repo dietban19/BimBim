@@ -76,3 +76,30 @@ export function WallListIcon(): ReactElement {
     </Icon>
   );
 }
+
+export function DoorIcon(): ReactElement {
+  return (
+    <Icon>
+      <rect x="3.5" y="2.5" width="9" height="11" rx="0.5" />
+      <path d="M7 2.5v11" />
+      <circle cx="5.8" cy="8" r="0.75" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}
+
+export function WindowIcon(): ReactElement {
+  return (
+    <Icon>
+      <rect x="2.5" y="3.5" width="11" height="9" rx="0.5" />
+      <path d="M8 3.5v9M2.5 8h11" />
+    </Icon>
+  );
+}
+
+export function ChevronDownIcon(): ReactElement {
+  return (
+    <Icon width="10" height="10" viewBox="0 0 10 10">
+      <path d="M2 3.5l3 3 3-3" />
+    </Icon>
+  );
+}
