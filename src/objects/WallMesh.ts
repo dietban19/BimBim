@@ -14,6 +14,13 @@ import {
   type JunctionWall,
   type XZBounds,
 } from '../model/wallJunctions';
+import {
+  buildWallFraming,
+  NO_FRAMING_CORNERS,
+  type CornerRole,
+  type FramingCorners,
+  type FramingMember,
+} from '../model/wallFraming';
 import type { DimensionResult, WallSummary } from '../types/editor';
 import type { PlanPoint, WallAxis } from '../types/geometry';
 import { distance } from '../utils/math';
@@ -21,15 +28,7 @@ import { validateDimension } from '../utils/validation';
 import { BaseMesh } from './BaseMesh';
 import { OBJECT_STYLES, type VisualState } from './visualStyle';
 import { WoodMemberMesh } from './WoodMemberMesh';
-/** Role a wall end plays in a California-corner junction. */
-export type CornerRole = 'none' | 'through' | 'butt';
-
-/** Positive offset → wall extends past its centreline point (through wall). */
-function cornerRoleFromOffset(offset: number): CornerRole {
-  if (offset > 1e-6) return 'through';
-  if (offset < -1e-6) return 'butt';
-  return 'none';
-}
+export type { CornerRole } from '../model/wallFraming';
 
 export interface WallMeshOptions {
   readonly segment: WallSegment;
@@ -55,6 +54,7 @@ export class WallMesh extends BaseMesh {
   private height: number;
   private thickness: number;
   private junction: JunctionOffsets = NO_JUNCTION_OFFSETS;
+  private corners: FramingCorners = NO_FRAMING_CORNERS;
   private readonly framing = new THREE.Group();
   private readonly edges: THREE.LineSegments<
     THREE.EdgesGeometry,
@@ -135,16 +135,27 @@ export class WallMesh extends BaseMesh {
     return distance(start, end);
   }
 
-  /** Whether each end of this wall is a California-corner through end, butt end, or free. */
+  /** Roles at local -X/+X, matching the member layout and framing elevation. */
   getCornerRoles(): { left: CornerRole; right: CornerRole } {
-    const jwall = this.toJunctionWall();
-    const startAlong = jwall.orientation === 'x' ? jwall.start.x : jwall.start.z;
-    const endAlong   = jwall.orientation === 'x' ? jwall.end.x   : jwall.end.z;
-    const dir = Math.sign(endAlong - startAlong) || 1;
-    return {
-      left:  cornerRoleFromOffset(dir > 0 ? this.junction.start : this.junction.end),
-      right: cornerRoleFromOffset(dir > 0 ? this.junction.end   : this.junction.start),
-    };
+    const { left, right } = this.localCorners();
+    return { left: left?.role ?? 'none', right: right?.role ?? 'none' };
+  }
+
+  getFramingMembers(): FramingMember[] {
+    return buildWallFraming({
+      length: this.getBuiltLength(), height: this.height, depth: this.thickness,
+      ...this.localCorners(),
+    });
+  }
+
+  private localCorners(): { left: FramingCorners['start']; right: FramingCorners['end'] } {
+    // +90 degrees about Y maps local +X to world -Z, and local +Z to world +X.
+    const start = this.segment.start;
+    const end = this.segment.end;
+    const startIsLeft = this.segment.orientation === 'x' ? start.x < end.x : start.z > end.z;
+    return startIsLeft
+      ? { left: this.corners.start, right: this.corners.end }
+      : { left: this.corners.end, right: this.corners.start };
   }
 
   setFramingVisible(visible: boolean): void {
@@ -168,14 +179,16 @@ export class WallMesh extends BaseMesh {
    * Moves the built ends off the centreline so junctions close. Called by the
    * owner of the wall collection whenever any wall in the layout changes.
    */
-  setJunctionOffsets(offsets: JunctionOffsets): void {
+  setJunctionOffsets(offsets: JunctionOffsets, corners: FramingCorners = NO_FRAMING_CORNERS): void {
     if (
       offsets.start === this.junction.start &&
-      offsets.end === this.junction.end
+      offsets.end === this.junction.end &&
+      sameCorners(corners, this.corners)
     ) {
       return;
     }
     this.junction = offsets;
+    this.corners = corners;
     this.updateGeometry();
   }
 
@@ -239,16 +252,7 @@ export class WallMesh extends BaseMesh {
     );
     this.rotation.set(0, jwall.orientation === 'x' ? 0 : Math.PI / 2, 0);
 
-    // Map start/end junction offsets to left/right in the wall's local space.
-    // Local -length/2 (left) corresponds to whichever segment endpoint has the
-    // smaller along-axis value; direction captures which end that is.
-    const startAlong = jwall.orientation === 'x' ? jwall.start.x : jwall.start.z;
-    const endAlong   = jwall.orientation === 'x' ? jwall.end.x   : jwall.end.z;
-    const dir = Math.sign(endAlong - startAlong) || 1;
-    const leftCorner  = cornerRoleFromOffset(dir > 0 ? this.junction.start : this.junction.end);
-    const rightCorner = cornerRoleFromOffset(dir > 0 ? this.junction.end   : this.junction.start);
-
-    this.rebuildFraming(len, leftCorner, rightCorner);
+    this.rebuildFraming();
     this.updateMatrixWorld();
   }
 
@@ -300,77 +304,29 @@ export class WallMesh extends BaseMesh {
     }
   }
 
-  private rebuildFraming(
-    length: number,
-    leftCorner: CornerRole = 'none',
-    rightCorner: CornerRole = 'none',
-  ): void {
+  private rebuildFraming(): void {
     this.clearFraming();
-
-    const height = this.height;
-    const depth = this.thickness;
-
-    const plateThickness = 0.038;
-    const studWidth = 0.038;
-    const studSpacing = 16 * 0.0254;
-
-    const studHeight = height - 2 * plateThickness;
-    if (studHeight <= 0 || length < 2 * studWidth) return;
-
-    const addMember = (
-      name: string,
-      width: number,
-      memberHeight: number,
-      x: number,
-      y: number,
-      color = 0xd4aa78,
-    ): void => {
-      const member = new WoodMemberMesh(width, memberHeight, depth, color);
-      member.name = name;
-      member.position.set(x, y, 0);
+    for (const spec of this.getFramingMembers()) {
+      const color = spec.kind === 'nailer' ? 0x9e7554 : spec.kind === 'stud' ? 0xc39460 : 0xd4aa78;
+      const member = new WoodMemberMesh(spec.width, spec.height, spec.depth, color);
+      member.name = spec.name;
+      member.position.set(spec.x, spec.y, spec.z);
       this.framing.add(member);
-    };
-
-    // Plates span the full wall length.
-    addMember('Bottom plate', length, plateThickness, 0, -height / 2 + plateThickness / 2);
-    addMember('Top plate',    length, plateThickness, 0,  height / 2 - plateThickness / 2);
-
-    const leftCenter  = -length / 2 + studWidth / 2;
-    const rightCenter =  length / 2 - studWidth / 2;
-
-    addMember('Left end stud',  studWidth, studHeight, leftCenter,  0, 0xc39460);
-    addMember('Right end stud', studWidth, studHeight, rightCenter, 0, 0xc39460);
-
-    // California corner: on the through-wall end, add a nailer stud just inside
-    // the end stud to give the butt wall's drywall a nailing surface.
-    if (leftCorner === 'through') {
-      addMember('Left corner nailer', studWidth, studHeight, leftCenter + studWidth, 0, 0x9e7554);
     }
-    if (rightCorner === 'through') {
-      addMember('Right corner nailer', studWidth, studHeight, rightCenter - studWidth, 0, 0x9e7554);
-    }
-
-    // Layout studs — keep clear of any nailer that occupies the space next to the end stud.
-    const rightStopBefore = rightCorner === 'through'
-      ? rightCenter - 2 * studWidth
-      : rightCenter - studWidth;
-
-    let layoutStudCount = 0;
-    for (let index = 1; ; index++) {
-      const x = leftCenter + index * studSpacing;
-      if (x > rightStopBefore) break;
-      addMember(`Layout stud ${index}`, studWidth, studHeight, x, 0, 0xc39460);
-      layoutStudCount++;
-    }
-
-    const clearM = length - 2 * studWidth;
-    const clearFt = clearM / 0.3048;
-    console.log('Layout studs:', layoutStudCount);
-    console.log(`Clear distance between end studs: ${clearFt.toFixed(3)} ft`);
   }
 }
 
 function requireValid(result: DimensionResult): number {
   if (!result.ok) throw new RangeError(result.error);
   return result.value;
+}
+
+function sameCorners(a: FramingCorners, b: FramingCorners): boolean {
+  return (['start', 'end'] as const).every((end) => {
+    const first = a[end];
+    const second = b[end];
+    return first === second || (first !== null && second !== null &&
+      first.role === second.role && first.interiorSide === second.interiorSide &&
+      first.neighborThickness === second.neighborThickness);
+  });
 }
